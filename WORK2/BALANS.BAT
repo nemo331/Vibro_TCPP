@@ -1,0 +1,1 @@
+for %%c in (1 2 3 4) do call balans2.exe dvch%%c.dat

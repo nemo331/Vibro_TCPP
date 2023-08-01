@@ -1,0 +1,1 @@
+slct_n01.exe proba.txt

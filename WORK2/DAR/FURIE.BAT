@@ -1,0 +1,1 @@
+c:\TC\WORK2\DAR\file_fft.exe  /c1 /v1 /n2048 /d12  

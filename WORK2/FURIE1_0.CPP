@@ -1,0 +1,583 @@
+/***********************************************************************/
+/* Программа преобразования Фурье и выделения значений вибрации для    */
+/* оределенного ряда частот    					       */
+/***********************************************************************/
+
+#include <stdio.h>
+#include <conio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <alloc.h>
+#include <sys\stat.h>
+#include <sys\timeb.h>
+#include <time.h>
+#include <math.h>
+#include <fcntl.h>
+#include <dos.h>
+#include <io.h>
+#include <dir.h>
+
+int i;
+int j;
+char Versia[10];
+int Number2;
+float Num=0;
+
+
+float aRes;
+int Res;    
+float Chast;    // частота опроса каналов АЦП
+
+
+char chans[20];
+int kol_otsch;
+//void kol_kan(char* strok, int *mas1); //Функция определения кол-ва каналов
+int nach_n_f;
+int mas[3][32];
+int **mas_end;
+int op_d_kan;  //кол-во опросн и деж каналов (общее с совп кан-ми)
+int por_otm=0;
+float kor_time=0;
+float ostat=0;
+time_t sekund3=0;
+int msec2=0;
+long timer=0;
+unsigned char tip_por=1;
+unsigned char tip_por2=1;
+char log_f=0;
+float **mas_srkv; //Массив с суммой данных замера для кажд канала и макс значений вибр
+long slw=0;
+long kol_cikl=0;
+char paus_f[15];
+int exist_f=-1;
+int flag_os=0;
+/**************************************************************************/
+int *Nom_kol; //Массив с номерами каналов сбора
+int *Nom_deg; //Массив с номерами каналов деж опроса
+int **Rez_kol;
+int nom_kan_otm[]={-1};
+float **sklz_sr;//массив для нахождения сколз ср. по 31
+int kol_sklzsr=31;
+
+FILE *myfile;   //Файл с параметрами опроса
+FILE *basefile; //Файл замера
+FILE *tempfile; //временный файл
+FILE *rezfile;  //файл с результатами обработки
+FILE *logfile;  //log-файл
+FILE *koffile;  //файл с коэффициентами
+FILE *furfile;  //файл с результатами фурье-обработки
+
+char ch_kan[40]; //Каналы опроса в виде строки
+char ch_deg[40]; //Каналы дежурного опроса в виде строки
+float far *aResult; //Массив с данными по вибрации в кодах АЦП
+char f_ust[45]; //Имя файла с параметрами замера
+char name_f1[15]; //Имя log-файла замера(вводится из ком строки или bat-файла)
+char name_f2[9]; //первые 8 символов полного названия файла
+char rassh[5]; //расширение файла замера
+int nom_fila;    //номер введенного названия файла
+char nom_f_c[3];
+	char str1[50];
+	char str2[50];
+	char str3[10];
+	char str4[50];
+	char kod[8];
+	char dob_k_filu[52];//добавка к началу файла замера (чтоб было 128 байт)
+	
+  typedef struct 
+       { char regim_opr; //режим опроса (0-оперативный 1-дежурный)
+	 int kol_filov; //кол-во файлов сбора
+	 int adres;  //адрес платы АЦП (220)
+	 float Chastota; //Частота опроса АЦП
+	 int fl; //Кол-во каналов для сбора
+	 int Number; //Кол-во отсчетов на канал
+	 char zap_otm; //Запуск от отметчика (1-да, 0-нет)
+	 char num_otm[2]; //Номер канала отметчика
+	 int num_nab;  //Номер набора коэффициентов
+	 float min_porog;//Пороговые значения для запуска опроса
+	 float max_porog;
+	 int fl_deg; //Кол-во каналов для деж опроса
+       } partip;   //структура данных с параметрами опроса
+
+
+    float aKof1[]={10.0,100.0,10.0,100.0,10.0,100.0,10.0,100.0,
+		   10.0,100.0,10.0,100.0,10.0,100.0,10.0,100.0};
+    float aKof2[]={10.631512,101.626016,10.786517,103.181427,
+		   10.709505,103.806228,11.019284,106.269926,
+		   10.432968,98.846788,10.833258,104.257168,
+		   10.728463,102.145046,10.914052,104.620750};//БКВ-1 (Выходы на шлейфовый осциллограф)
+   float aKof3[]={109.289618,106.951872,109.289618,121.951220,
+		  105.263158,106.951872,102.040816,106.951872,
+		  109.289618,106.951872,109.289618,121.951220,
+		  105.263158,106.951872,102.040816,106.951872}; //БКВ-2 (Выходы по пост. напряжению на ЭВМ)		 
+   float aKof4[]={10.042681,95.923261,10.042681,93.676815,
+		  10.118897,94.117647,10.914052,106.100796,
+		  9.772783,91.533181,9.982531,92.807425,
+		  9.878982,89.887640,9.811136,92.378753};//БКВ-2 (Выходы на шлейфовый осциллограф) 
+   float aKof5[]={109.289618,106.951872,109.289618,121.951220,
+		  105.263158,106.951872,102.040816,106.951872,
+		  109.289618,106.951872,109.289618,121.951220,
+		  105.263158,106.951872,102.040816,106.951872};//БКВ-1(Выход на ЭВМ)
+   float aKof7[]={100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,
+		  100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0 };//коэф-ты 100 для всех каналов
+   float aKof8[]={101.626016,103.181427,103.806228,106.269926,
+		  98.846788,104.257168,102.145046,104.620750,
+		  95.923261,93.676815,94.117647,106.100796,
+		  91.533181,92.807425,89.887640,92.378753};//БКВ-1,БКВ-2 (шлейфовый осциллограф)
+   float aKof9[]={95.923261,93.676815,94.117647,106.100796,
+		  91.533181,92.807425,89.887640,92.378753,
+		  101.626016,103.181427,103.806228,106.269926,
+		  98.846788,104.257168,102.145046,104.620750};
+   float aKof10[]={1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,
+		   1.0,1.0,1.0,1.0};
+   float aKof11[]={1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,
+		   1.0,1.0,1.0,1.0};
+
+   float aKof[16]={1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,
+		   1.0,1.0,1.0,1.0};
+
+  partip par;
+
+
+  char* filu = "q";
+  char naz_filov[20];
+  char naz_filov2[20];
+ /*********************************************************************************/
+  int obr_f_dan(void);   // Функция обработки файла установок
+  void kol_kan(char* strok, int *mas1); //Функция определения кол-ва каналов и кол-ва их повторений
+  //int opr_deg_kan(int* mmm1, int* mmm2); //Добавление деж номеров каналов в массив с номерами каналов опроса АЦП
+  int obr_osh(void); //Функция обработки ошибок
+  void obr_f_kof(int); //Функция чтения файла с коэффициентами
+    //float far *vib_dan; //Указатель на массив данных по вибрации
+    float far *nGbm;    //Указатель на массив значений частот
+    float far *nGbv;    //Указатель на массив значений амплитуд вибрации
+    float *argum;   //Указатель на массив фаз при преобразовании Фурье
+    float far *vn_aGv;
+    float far *vn_aGm; 
+    void S_Furie(int Num,float far *vn_vib,float far *vn_nGbm,float far *vn_nGbv,float *vn_argum);
+  
+
+
+  /***************************************************************************/
+/*    Основная программа                                                   */
+/***************************************************************************/ 
+  int main(int argc, char* argv[])
+  { 
+    mkdir ("furie"); //каталог куда будет занесен обраб фурье-файл
+    strcpy(Versia,"1.0");
+    printf("\n\t\tПреобразование Фурье - Furie (Версия %s)\n",Versia);
+    strcpy(name_f1,argv[1]);
+    
+
+
+    if(argv[2]==NULL) {strcpy(f_ust,"param.prm");}
+    else {strcpy(f_ust,argv[2]);}
+    
+    int osh=obr_f_dan();
+    int osh2=obr_osh();
+    osh=osh+osh2;
+    if (osh>0)
+    {printf("\nВ файле параметров допущены %d ошибки(ок) \n",osh);return 0;}
+
+    Nom_kol=(int*)calloc(par.fl,sizeof(int));
+    if(Nom_kol==NULL){printf("Out memory\n");return 0;}
+    kol_kan(ch_kan,Nom_kol); 
+
+    int kt;
+       switch (par.num_nab)
+	{
+	case 1: for(kt=0;kt<16;kt++)
+		aKof[kt]=aKof1[kt]*0.0025;
+		break;
+	case 2: for(kt=0;kt<16;kt++)
+		aKof[kt]=aKof2[kt]*0.0025;
+		break;
+	case 3: for(kt=0;kt<16;kt++)
+		aKof[kt]=aKof3[kt]*0.0025;
+		break;
+	case 4: for(kt=0;kt<16;kt++)
+		aKof[kt]=aKof4[kt]*0.0025;
+		break;
+	case 5: for(kt=0;kt<16;kt++)
+		aKof[kt]=aKof5[kt]*0.0025;
+		break;
+	case 6: for(kt=0;kt<16;kt++)
+		aKof[kt]=aKof[kt];
+		break;
+	case 7: for(kt=0;kt<16;kt++)
+		aKof[kt]=aKof7[kt]*0.0025;
+		break;
+	case 8: for(kt=0;kt<16;kt++)
+		aKof[kt]=aKof8[kt]*0.0025;
+		break;
+	case 9: for(kt=0;kt<16;kt++)
+		aKof[kt]=aKof9[kt]*0.0025;
+		break;
+	case 10: for(kt=0;kt<16;kt++)
+		aKof[kt]=aKof10[kt]*0.0025;
+		break;
+	default: obr_f_kof(par.num_nab);
+		 for(kt=0;kt<16;kt++)
+		 aKof[kt]=aKof11[kt]*0.0025;
+		break;
+	}
+
+
+    logfile=fopen(name_f1,"rt+");
+	if(logfile==NULL)
+	    {printf("Не могу открыть файл%35s\n",name_f1); return 0;}
+            filu=fgets(naz_filov,13,logfile);
+	    filu=fgets(naz_filov2,13,logfile);
+	    while (filu!=NULL)
+		{
+		
+		strncpy(name_f2,naz_filov,8);
+		sprintf(str2,"FURIE\\%s.frz",name_f2);
+		exist_f=access(str2,0);
+		if (exist_f!=0)
+		  { 
+		   sprintf(str3,"BIV\\%s.bin",name_f2);
+		   basefile=fopen(str3,"rb+");
+		   if(basefile!=NULL)
+		   {    
+
+                   
+		      
+		       aResult=(float*)farcalloc(par.Number,sizeof(float));
+		       if(aResult==NULL){printf("Out memory2\n");return 0;}
+
+		   for(i=0;i<par.fl;i++)
+		     {
+			for(j=0;j<par.Number;j++)
+			{
+			fseek(basefile,2L*i+2L*par.fl*j,SEEK_SET);
+			fread(&Res,2,1,basefile);
+			aResult[j]=(float)Res*aKof[Nom_kol[i]];
+			//printf("%.2f\n",aResult[j]);
+			}
+			
+		   
+		   
+		    
+			int riad=log(par.Number)*1.442695;//Находим максимально возможное кол-во 
+			Number2=pow(2,riad);             //отсчетов для разложения в ряд Фурье
+
+			nGbm=(float*)farcalloc(Number2>>1,sizeof(float));
+			if(nGbm==NULL){printf("Out memory22\n");return 0;}
+			nGbv=(float*)farcalloc(Number2>>1,sizeof(float));
+			if(nGbv==NULL){printf("Out memory23\n");return 0;}
+			argum=(float*)calloc(Number2>>1,sizeof(float));
+			if(argum==NULL){printf("Out memory24\n");return 0;}
+
+			
+			//Подпрограмма "Преобразование Фурье"
+			S_Furie(Number2,aResult,nGbm,nGbv,argum);
+			
+                        sprintf(str4,"FURIE\\%s.t%02i",name_f2,i);
+			tempfile=fopen(str4,"wt+");
+			if(tempfile==NULL)
+			{printf("Не могу открыть файл%35s\n",str4);}
+  
+			for(int d=0;d<(Number2>>1);d++)
+			{ fprintf(tempfile,"%9.4f \t",nGbm[d]);
+			  fprintf(tempfile,"%9.4f \t",nGbv[d]);
+			  fprintf(tempfile,"%9.4f \n",argum[d]*(180/M_PI));
+			}
+                        fclose (tempfile);
+			farfree(nGbm);
+			farfree(nGbv);
+			free(argum); 
+		     }
+                     farfree (aResult);
+		     fclose(basefile);
+		   }
+		   else 
+		   {printf("Не могу открыть файл%35s\n",str3);}
+		  }
+		  filu=fgets(naz_filov,13,logfile);
+		  filu=fgets(naz_filov2,13,logfile);
+		}  
+    fclose(logfile);
+     
+    return 0;
+  }
+
+/**************************/
+/* Чтение файла параметров*/
+/**************************/
+  int obr_f_dan(void)
+       {
+	int osh=0;
+	int c;
+	int ot=0;        //Флаг символа табуляции
+	int on=0;        //Флаг символа конца строки
+	int kav=0;       //Флаг символа кавычек
+	int fldv=0;      //Флаг символа двоеточия
+	char pred[100];
+	char prom[100];
+	char t[2];
+       sprintf(str1,"%s",f_ust);       //  C:\\TC\\WORK2\\
+      myfile=fopen(str1,"rt");  //Открытие установочного файла
+      if(myfile==NULL)
+	    {printf("Не могу открыть файл%35s\n",str1);return 0;}
+      char* df=NULL;
+
+      c=0;
+      for(int tf=0;tf<100;tf++)
+     {
+   do{
+	 strcpy(pred,"");
+         fldv=0;    //флаг по двоеточию сброшен
+      do {
+	  df=fgets(t,2,myfile);
+	    ot=stricmp(df,"\t"); //    Сравнить на наличие символа табуляции
+	    on=stricmp(df,"\n"); //    Сравнить на наличие символа перевода строки
+	    kav=stricmp(df,"\:");
+	    if(kav==0) {fldv=1;}
+             if (df==NULL) break; 
+	   if (fldv!=0 && on!=0 && kav!=0) { strcat(pred,t);}
+	   if (fldv!=0) strcpy(prom,pred);
+	   if(kav==0) {c=c+1;}
+	 }  while (ot!=0 && on!=0); // Делать пока не табуляция или пока не перевод строки
+	  
+	     switch(c)
+	     { 
+	case 1: par.regim_opr=atoi(prom);		 break;
+	case 2: par.kol_filov=atoi(prom);	 	 break;
+	case 3: par.adres=atoi(prom);                    break;
+	case 4: par.Chastota=atof(prom);	         break;
+	case 5: par.fl=strlen(prom);
+		if ((par.fl<=16)&&(par.fl>=1))
+		{strcpy(ch_kan,prom);}
+		if (par.fl>16)
+		{strncpy(ch_kan,prom,16);}
+		break;
+	case 6: par.Number=atoi(prom); 	 	 
+		//printf("\npar.Number=%d\n",par.Number); 
+		break;
+	case 7:  if (strchr(strupr(prom),'Y')!=NULL) 
+	         {par.zap_otm=1;}
+		 else par.zap_otm=0; 	 	 break;
+	case 8:  strncpy(par.num_otm,strlwr(prom),1); 	 
+		 break;
+	case 9:  por_otm=atoi(prom);             break;
+	case 10: par.num_nab=atoi(prom); 	 break;
+	case 11: par.min_porog=atof(prom); 	 break;
+	case 12: par.max_porog=atof(prom); 	 break;
+	case 13: par.fl_deg=strlen(prom); 
+		 //fl_deg=par.fl_deg;       
+		 //if ((par.fl_deg>16)||(par.fl_deg<1))
+		 //{osh=osh+1;}
+		 strcpy(ch_deg,prom);
+		 break;
+	case 14: tip_por=atoi(prom);              break;
+	case 15: tip_por2=atoi(prom);             break;
+	case 16: if (strchr(strupr(prom),'Y')!=NULL) 
+		 {log_f=1;}
+		 else log_f=0; 	 	          break;
+	case 17: kor_time=atof(prom);             break;
+	case 18: flag_os=atoi(prom);              break;
+	default: break;
+	     }
+	   
+        if (df==NULL) break;
+	
+      }  while (on!=0);
+        if (df==NULL) break; 
+     }	
+     fclose(myfile);
+      return osh;
+       } //КОНЕЦ ФУНКЦИИ obr_f_dan
+/*************************************************************/
+/* Определение кол-ва каналов и занесение их номеров в массив*/
+/*************************************************************/
+  void kol_kan(char *strok, int *mas1)
+     {
+     char odsim[2];
+     odsim[0]='\0';
+     odsim[1]='\0';
+     int ch_ccc=strlen(strok);
+     for(int tf=0;tf<ch_ccc;tf++)
+     {
+      memcpy(odsim,&strok[tf],1);      //Преобразование строки с номерами
+      sscanf(odsim,"%x",&mas1[tf]); //каналов в десятичные числа и 
+      strset(odsim,'\0');              //сохранение их в массиве mas1
+     }
+/*        int vrNom=0;
+	 for(tf=0;tf<fl;tf++)             //Заполнение второго столбца массива
+	 {                                //отвечающего за количество повторений  
+	  vrNom=mas1[0][tf];               //данного канала
+	   int schNom=0;
+	   for(int ff=tf;ff<fl;ff++)
+	    {if (vrNom==mas1[0][ff]&&mas1[1][ff]==0)
+		 {schNom=schNom+1;mas1[1][ff]=-1;}
+	    }
+	  mas1[1][tf]=schNom;
+	 }                       */
+	// for(tf=0;tf<ch_ccc;tf++)
+       // printf("%d\n",mas1[tf]);
+     }   //КОНЕЦ ФУНКЦИИ kol_kan
+/*******************/
+/*Обработка ошибок*/
+/******************/
+int obr_osh(void)
+{ int osh=0;
+  if (par.regim_opr!=0&&par.regim_opr!=1)
+  {par.regim_opr=0;}
+  if (par.kol_filov<1||par.kol_filov>100)
+  {par.kol_filov=1;}
+  if(par.adres<1)
+  {par.adres=200;}
+  if(par.fl<1)
+  {
+   strcpy(ch_kan,"0123456789abcdef");
+   par.fl=16;
+   //printf("\nТак как каналы не были заданы, установлены следующие:0123456789abcdef\n");
+  }		
+  if(par.Chastota*par.fl>14000||par.Chastota*par.fl<=0)
+  {
+   par.Chastota=400;
+   //printf("\nЧастота изменена на 400Гц так как не задана или больше допустимой\n");
+  }
+  if(par.Number<1)
+  {par.Number=8192;
+   //printf("\nКол-во отсчетов изменено на 8192 так как не задано или больше допустимого\n");
+  }
+  char ch_kannn[18];
+  strcpy(ch_kannn,"0123456789abcdefn");
+  char *ptr;
+  ptr=strpbrk(ch_kannn,par.num_otm);
+  if(ptr==NULL)
+  {strncpy(par.num_otm,"f",1);
+  //printf("\nКанал отметчика был задан неправильно поэтому изменен на %s \n",par.num_otm);
+  }
+  if(por_otm==0) 
+      por_otm=1024;
+  if (par.num_nab==0)
+      par.num_nab=6;
+  if(par.min_porog==0)
+      par.min_porog=-100;
+  if(par.max_porog==0)
+      par.max_porog=100;
+  
+  if ((par.fl_deg>16)||(par.fl_deg<1))
+    {par.fl_deg=par.fl;
+     strcpy(ch_deg,ch_kan);}
+
+  if((tip_por<1)||(tip_por>4))
+     tip_por=1;
+
+  if (tip_por2>4)
+      tip_por2=0;
+
+  if (abs(flag_os)>1)
+       { flag_os=1;
+	 //printf("\nflag_os=%d\n",flag_os);
+       }
+
+  return osh;
+}
+
+/*******************************/
+/*Чтение коэффициентов из файла*/
+/*******************************/
+void obr_f_kof(int naz_f1)
+{     char stroka1[100];
+      sprintf(stroka1,"%d.kof",naz_f1);       //  C:\\TC\\WORK2\\
+      koffile=fopen(stroka1,"rt");  //Открытие файла с коэффициентами
+      if(koffile==NULL)
+	    {printf("Не могу открыть файл%35s\n",stroka1);return ;}
+      for(int ttf=0;ttf<16;ttf++)
+      {
+	fscanf(koffile,"%f ",&aKof11[ttf]);
+	//printf("%f\n",aKof11[ttf]);
+      }
+      fclose(koffile);
+      return;
+}
+
+//--------------------------------------------------------
+//   Быстрое преобразование Фурье
+//--------------------------------------------------------
+void S_Furie(int Num,float far *vn_vib,float far *vn_nGbm,float far *vn_nGbv,float far *vn_argum)
+{
+	int nMatr;
+	unsigned int i;
+	unsigned int j;
+	unsigned int k;
+	unsigned int m;
+	unsigned int nSt;
+	long int ni;
+	long int ip;
+	float Koeff;
+	float nV;
+	float nM;
+	float nGtv;
+	float nGtm;
+	float dT =(float)1/par.Chastota;
+	double SumKv;
+        double arctan;
+	Koeff=1.0;
+          vn_aGv=(float*)farcalloc(Num,sizeof(float));
+	  if(vn_aGv==NULL){printf("Out memory25\n");return;}
+		 vn_aGm=(float*)farcalloc(Num,sizeof(float));
+		 if(vn_aGm==NULL){printf("Out memory26\n");return;}
+
+	nMatr=1;
+	for(i=0;(Num>>i)!=1;i++)
+		nMatr++;
+	for(i=1;i<nMatr;i++)
+	{
+		nSt=(Num>>i);
+		ip=0;
+		for(j=0;j<(1<<(i-1));j++)
+		{
+			nV=cos((2*M_PI/(1<<i))*j);
+			nM=sin((2*M_PI/(1<<i))*j);
+			for(k=0;k<nSt;k++)
+			{
+				ni=2*nSt*j+k;
+				if (i==1)
+				{
+				vn_aGv[ip]=Koeff*(vn_vib[ni]+vn_vib[ni+nSt]);
+				vn_aGv[ip+nSt]=Koeff*(vn_vib[ni]-vn_vib[ni+nSt]);
+				vn_aGm[ip]=0;
+				vn_aGm[ip+nSt]=0;
+				}
+				else
+				{
+				nGtv=vn_aGv[ni]+nV*vn_aGv[ni+nSt]+nM*vn_aGm[ni+nSt];
+				vn_nGbv[ip]=vn_aGv[ni]-nV*vn_aGv[ni+nSt]-nM*vn_aGm[ni+nSt];
+				nGtm=vn_aGm[ni]+nV*vn_aGm[ni+nSt]-nM*vn_aGv[ni+nSt];
+				vn_nGbm[ip]=vn_aGm[ni]-nV*vn_aGm[ni+nSt]+nM*vn_aGv[ni+nSt];
+				vn_aGv[ip]=nGtv;
+				vn_aGm[ip]=nGtm;
+				}
+				ip++;
+			}
+		}
+		if (i!=1)
+		{
+			for(m=0;m<(Num>>1);m++)
+			{
+				vn_aGv[m+(Num>>1)]=vn_nGbv[m];
+				vn_aGm[m+(Num>>1)]=vn_nGbm[m];
+			}
+		}
+	}
+	i=0;
+	vn_nGbv[i]=vn_aGv[i]/Num;
+	vn_nGbm[i]=0;
+	for (i=1;i<(Num>>1);i++)
+	{
+		SumKv=sqrt((vn_aGv[i]/Num)*(vn_aGv[i]/Num)+(vn_aGm[i]/Num)*(vn_aGm[i]/Num));
+		vn_nGbv[i]=2.0*(float)SumKv;
+		vn_nGbm[i]=i/(dT*Num);
+		arctan=atan(vn_aGm[i]/vn_aGv[i]);
+		vn_argum[i]=(float)arctan;//*(180/M_PI);
+		if(vn_aGv[i]<0){vn_argum[i]=vn_argum[i]+M_PI;}
+		if(vn_argum[i]<0){vn_argum[i]=vn_argum[i]+(2*M_PI);}
+	}
+          farfree(vn_aGv);
+	 farfree(vn_aGm);
+	return;
+} 

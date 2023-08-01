@@ -1,0 +1,1 @@
+c:\TC\work2\tasovka.exe %1 %2

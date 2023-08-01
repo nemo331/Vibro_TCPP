@@ -1,0 +1,1 @@
+C:\la70m3_o\ADC\datview.exe C:\TC\WORK2\DAR\DATA\%1.dat /n2 /vga

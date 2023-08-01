@@ -1,0 +1,4 @@
+.c.exe:
+	bcc -w -f -ml -v- -K $&.c tmp.lib
+	pklite -a -o $&.exe
+	..\tm $&.exe

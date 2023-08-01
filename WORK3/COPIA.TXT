@@ -1,0 +1,11 @@
+ { char N_pp[5]; char Name_f[14]; char N_GA[3]; char Date_zam[10];
+	    char Regim[5]; char Podreg[5]; char P[5]; char Q[5];
+	    char Irot[6]; char Ist[6]; char Ust[6]; char RK[6];
+  	    char NA[6]; char Oborot[5];char tgel[4];char Napor[12];
+	    char Rem[50];char chan1[20];char chan2[20];char chan3[20];
+	    char chan4[20];char chan5[20];char chan6[20];char chan7[20];
+	    char chan8[20];char chan9[20];char chan10[20];char chan11[20];
+	    char chan12[20];char chan13[20];char chan14[20];char chan15[20];
+
+	    case 0: strcpy(spisok[tf].N_pp,prom);
+	      break;

@@ -1,0 +1,1 @@
+ COPY  c:\TC\WORK2\DAR\data\%1%2.dat c:\TC\WORK2\DAR\ps.dat /B

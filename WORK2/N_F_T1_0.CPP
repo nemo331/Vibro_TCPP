@@ -1,0 +1,34 @@
+/***********************************************************************/
+/*Программа задания имени для файлов замеров по текущему дате и времени*/
+/*name_for_time(N_F_T)                                                 */
+/***********************************************************************/
+	   
+#include <stdio.h>
+#include <dos.h>
+#include <time.h>
+#include <math.h>
+
+time_t sec;
+time_t minut;
+ 
+int mass[5];
+double prom;
+char *alfabet= "0123456789abcdefghijklmnopqrstuvwxyz";
+char name_f[6];
+
+ int main(void)
+  {
+    sec=time(NULL);
+    minut = sec/(time_t)60;
+    
+    for(int k=4;k>-1;k--)
+       {
+       prom=fmod((double)minut,(double)36);
+       minut=minut/(time_t)36;
+       mass[k]=(int)prom;
+       name_f[k]=alfabet[mass[k]];
+       //printf("Остаток  %d\n",mass[k]);
+       }
+       printf("Остаток  %s\n",name_f);
+       
+  }
